@@ -22,5 +22,8 @@ https://github.com/gbegreg/FMXCorridor
 
 Grégory Bersegeay : http://www.gbesoft.fr
 
-<a href="https://youtu.be/UijFnnkVljQ">Video on Youtube</a>
+FMX Island screen capture :
+<img src="https://github.com/gbegreg/FMXISland/tree/master/capture.png">
 
+Video on Youtube :
+<a href="https://youtu.be/UijFnnkVljQ">See the video on Youtube</a>
