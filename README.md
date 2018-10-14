@@ -16,8 +16,6 @@ This project show :
  - follow the asperities of the ground;
  - use Firemonkey animations.
 
-Next evloution will be collisions detections with the TMesh but I can not do it for the moment ...
-
 See my other games with Delphi and Firmaonkey :<br>
 https://github.com/gbegreg/FMXPong<br>
 https://github.com/gbegreg/demoParis
