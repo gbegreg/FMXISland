@@ -8,7 +8,7 @@ uses
   System.Math.Vectors, FMX.Types3D, FMX.Ani, FMX.Objects3D, FMX.Controls3D,
   FMX.Viewport3D, FMX.MaterialSources, FMX.Objects, FMX.Effects,
   FMX.Controls.Presentation, FMX.StdCtrls, FMX.Layouts, FMX.Filter.Effects, system.IOUtils,
-  System.Generics.Collections, FMX.Layers3D;
+  System.Generics.Collections, FMX.Layers3D, Math;
 
 type
   TTypeObjet = (batiment, arbre);
@@ -37,11 +37,7 @@ type
     sCiel: TSphere;
     faniPrincipale: TFloatAnimation;
     dmyJoueurOrientation: TDummy;
-    textureBatiment: TLightMaterialSource;
     modeleBatiment: TRectangle3D;
-    textureCoteBatiment: TLightMaterialSource;
-    Layout4: TLayout;
-    tbAltitude: TTrackBar;
     fAniVagues: TFloatAnimation;
     modeleArbre: TModel3D;
     mModelArbeMat11: TLightMaterialSource;
@@ -105,17 +101,24 @@ type
     CameraBateau: TImage;
     FillRGBEffect5: TFillRGBEffect;
     Layout5: TLayout;
+    l1Ville1: TLight;
+    l1Ville2: TLight;
+    l1Ville3: TLight;
+    l2Ville1: TLight;
+    faniCiel: TFloatAnimation;
+    textureBatiment: TLightMaterialSource;
+    textureCoteBatiment: TLightMaterialSource;
+    lblCollision: TLabel;
+    dmyProchainePosition: TDummy;
     procedure FormCreate(Sender: TObject);
     procedure viewportMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure viewportMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
     procedure faniJourNuitProcess(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: Char; Shift: TShiftState);
     procedure faniPrincipaleProcess(Sender: TObject);
-    procedure tbAltitudeChange(Sender: TObject);
     procedure viewportMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; var Handled: Boolean);
     procedure CaptureImageBTNClick(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure tbVitesseTracking(Sender: TObject);
     procedure mSolRender(Sender: TObject; Context: TContext3D);
     procedure imgLumiereClick(Sender: TObject);
     procedure tbZoomCarteTracking(Sender: TObject);
@@ -134,6 +137,10 @@ type
     procedure ChargerTextures;
     procedure genererObjets;
     procedure genererNuages;
+    function CalculerHauteur(P: TPoint3D): single;
+    function Barycentre(p1, p2, p3: TPoint3D; p4: TPointF): single;
+    function DetectionCollisionObstacle: boolean;
+    function SizeOf3D(const unObjet3D: TControl3D): TPoint3D;
     property posDepartCurseur: TPointF read FPosDepartCurseur write FPosDepartCurseur; // Propriété de la position du pointeur de souris au début du mouvement de la souris
     property angleDeVue : TPointF write SetAngleDeVue; // Propriété de l'angle de vue
     property direction : TPoint3D read GetDirection; // Propriété de la direction
@@ -142,14 +149,20 @@ type
     debut : boolean;
     maHeightMap: TBitmap;    // Texture qui servira à générer le sol (le Mesh)
     indicePhoto : integer;   // Indice pour la sauvegarde des photos prises
+    hauteurs : array of array of single; // Tableau à deux dimensions pour stocker les hauteur des sommets du TMesh
+    entreEnCollisionObstacle : boolean; // Permet de savoir si le joueur est entré en collision avec un obstacle (batiment ou arbre)
+    hauteurMin, demiHauteurJoueur, miseAEchelle, demiHauteurSol : single;
+    moitieCarte : integer;
     procedure CreerIle(const nbSubdivisions: integer); // Procédure qui crée le niveau
   end;
 
   TMEshHelper = class(TCustomMesh); // Va servir pour caster un TPlane en TMesh
 
 const
-  MaxSolMesh = 500;  //
-  SizeMap = 500;     // Taille
+  MaxSolMesh = 500;  /// Nombre de maille sur un côté du TMesh
+  SizeMap = 500;     // Taille du côté du TMesh
+  sizeHauteur = 50;  // Taille hauteur du TMesh
+  TailleJoueur = 0.6;// Taille du joueur
 
 var
   fPrincipale: TfPrincipale;
@@ -180,6 +193,10 @@ begin
     sCiel.Opacity := 0.5;
     lSoleil.Enabled := true;  // activaton de la lumière du Soleil
     lBateau.enabled := true;
+    l1Ville1.Enabled := false;
+    l2Ville1.Enabled := false;
+    l1Ville2.Enabled := false;
+    l1Ville3.Enabled := false;
   end
   else
   begin
@@ -190,6 +207,10 @@ begin
       sCiel.Opacity := 1;
       lSoleil.Enabled := false;
       lBateau.enabled := false;
+      l1Ville1.Enabled := true;
+      l2Ville1.Enabled := true;
+      l1Ville2.Enabled := true;
+      l1Ville3.Enabled := true;
     end
     else
     begin
@@ -201,19 +222,24 @@ begin
 end;
 
 procedure TfPrincipale.faniPrincipaleProcess(Sender: TObject);   // Boucle principale du jeu
-var
-  P: TPoint3D; // Point en 3D qui sera la position du joueur
 begin
   if debut then
   begin
     CreerPlan; // Création de la carte
     debut := false;
-  end;
+  end
+  else
+  begin
+    dmyProchainePosition.Position.Point := dmyJoueurOrientation.Position.Point + direction * tbVitesse.value;
+    if length(hauteurs) > 0 then
+    begin
+      dmyProchainePosition.Position.Y := CalculerHauteur(dmyProchainePosition.Position.Point) - demiHauteurJoueur - TailleJoueur; // La hauteur de la position du joueur est lue dans le tableau des hauteurs en fonction des coorodonées X et Z
+      if not(DetectionCollisionObstacle) then dmyJoueurOrientation.Position.Point := dmyProchainePosition.Position.Point;
+    end;
 
-  P := dmyJoueurOrientation.Position.Point + direction * tbVitesse.value;  // Déplacement du joueur en fonction de sa direction et de sa vitesse
-  dmyJoueurOrientation.Position.Point:=P;
-  P.Y := - 50;  // On place le dummy indiquant la position du joueur sur la carte au desssus
-  dmyPositionJoueurCarte.Position.Point :=P; // Mise à jour du TCone représentant la position du curseur sur la carte
+    dmyProchainePosition.Position.Y := - 50;  // On place le dummy indiquant la position du joueur sur la carte au desssus
+    dmyPositionJoueurCarte.Position.Point := dmyProchainePosition.Position.Point; // Mise à jour du TCone représentant la position du curseur sur la carte
+  end;
 end;
 
 procedure TfPrincipale.FormCreate(Sender: TObject);
@@ -221,8 +247,13 @@ begin
   debut := true;
   randomize;
   indicePhoto := 1;
+  sCiel.visible := false;
   ChargerTextures; // Charge les différentes textures
   CreerIle(MaxSolMesh);  // Création du niveau (heightmap, immubles, arbres et autres objets
+  moitieCarte := math.Floor(SizeMap/2);
+  demiHauteurJoueur := dmyJoueurOrientation.Height/2;
+  miseAEchelle := sizeHauteur / (-hauteurMin);
+  demiHauteurSol := mSol.Depth/2;
 end;
 
 procedure TfPrincipale.FormDestroy(Sender: TObject);
@@ -239,6 +270,7 @@ begin
   if key = vkLeft then dmyJoueurOrientation.RotationAngle.y:= dmyJoueurOrientation.RotationAngle.y - 1;  // orientation droite/gauche (axe y) en fonction du déplacement de la souris en X
   if key = vkRight then  dmyJoueurOrientation.RotationAngle.y:= dmyJoueurOrientation.RotationAngle.y + 1; // orientation droite/gauche (axe y) en fonction du déplacement de la souris en X
   sPositionJoueur.RotationAngle.Z := dmyJoueurOrientation.RotationAngle.y; // orientation du cône représentant la position du joueur sur la carte
+  interactionIHM;
 end;
 
 procedure TfPrincipale.CreerIle(const nbSubdivisions: integer); // Création du niveau
@@ -256,6 +288,8 @@ begin
 
   G:=nbSubdivisions + 1;
   S:= G * G;  // Nombre total de maille
+  setlength(hauteurs, G, G);
+  hauteurMin := 0;
 
   try
     Basic := TPlane.Create(nil);    // Création du TPlane qui va servir de base à la constitution du mesh
@@ -283,6 +317,9 @@ begin
           C:=TAlphaColorRec(CorrectColor(bitmapData.GetPixel(x,y))); // On récupère la couleur du pixel correspondant dans la heightmap
           zMap := (C.R  + C.G  + C.B ) / $FF * sizemap / 25; // détermination de la hauteur du sommet en fonction de la couleur
 
+          hauteurs[X,Y] := -zMap; // On stocke la hauteur calculée
+          if -zMap < hauteurMin then hauteurMin := -zmap;
+
           Front^.Z := zMap; // on affecte la hauteur calculée à la face avant
           Back^.Z := zMap;  // pareil pour la face arrière
         end;
@@ -304,6 +341,62 @@ begin
   end;
 end;
 
+function TfPrincipale.CalculerHauteur(P: TPoint3D) : single;
+var
+   grilleX, grilleZ : integer;  // indices à utiliser pour accéder au tableau hauteurs
+   xCoord, zCoord, hauteurCalculee : single; // coordonnées X et Z dans le "carré"
+begin
+  // Détermination des indices permettant d'accéder à hauteurs en fonction de la position du joueur
+  grilleX := Math.Floor(P.X+moitieCarte);
+  grilleZ := Math.Floor(P.Z+moitieCarte);
+
+  // Si on est en dehors du mSol, on force (arbitrairement) la hauteur à la hauteur de la mer
+  if (grilleX >= MaxSolMesh) or (grilleZ >= MaxSolMesh) or (grilleX < 0) or (grilleZ < 0) then
+  begin
+    result := -pMer.Position.Z - demiHauteurJoueur;
+  end
+  else
+  begin
+    xCoord := Frac(P.X); // position X dans la maille courante
+    zCoord := Frac(P.Z); // position y dans la maille courante
+
+    // On détermine dans quel triangle on est
+    if xCoord <= (1 - zCoord) then
+    begin
+      // On calcule la hauteur en fonction des 3 sommets du triangle dans lequel se trouve le joueur
+      hauteurCalculee := Barycentre(TPoint3D.Create(0,hauteurs[grilleX,grilleZ],0),
+                                    TPoint3D.Create(1,hauteurs[grilleX+1,grilleZ],0),
+                                    TPoint3D.Create(0,hauteurs[grilleX,grilleZ+1],1),
+                                    TPointF.Create(xCoord, zCoord));
+    end
+    else
+    begin
+      // On calcule la hauteur en fonction des 3 sommets du triangle dans lequel se trouve le joueur
+      hauteurCalculee := Barycentre(TPoint3D.Create(1,hauteurs[grilleX+1,grilleZ],0),
+                                    TPoint3D.Create(1,hauteurs[grilleX+1,grilleZ+1],1),
+                                    TPoint3D.Create(0,hauteurs[grilleX,grilleZ+1],1),
+                                    TPointF.Create(xCoord, zCoord));
+    end;
+
+    hauteurCalculee := hauteurCalculee * miseAEchelle + demiHauteurSol - demiHauteurJoueur;  // Hauteur calculée et mise à l'échelle (size 50 dans CreerIle et prise en compte des demis hauteurs)
+    // Si la hauteur calculée est > à la hauteur de pMer, alors on retourne la hauteur de pMer
+    if hauteurCalculee > -pMer.Position.Z then result := -pMer.Position.z
+    else result := hauteurCalculee;
+  end;
+end;
+
+// https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
+function TfPrincipale.Barycentre(p1, p2, p3 : TPoint3D; p4 : TPointF):single;
+var
+  det, l1, l2, l3 : single;
+begin
+  det := (p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z);
+  l1  := ( (p2.z - p3.z) * (p4.x - p3.x) + (p3.x - p2.x) * (p4.y - p3.z) ) / det;
+  l2  := ( (p3.z - p1.z) * (p4.x - p3.x) + (p1.x - p3.x) * (p4.y - p3.z) ) / det;
+  l3  := 1 - l1 - l2;
+  result := l1 * p1.y + l2 * p2.y + l3 * p3.y;
+end;
+
 procedure TfPrincipale.Cone2Render(Sender: TObject; Context: TContext3D);
 begin
   cone2.RotationAngle.Y := cone2.RotationAngle.Y + 1;
@@ -321,6 +414,7 @@ begin
   end;
   I.Locked:=true;                  // Pour ne plus modifier l'objet en mode conception
   I.HitTest:=false;                // Ainsi, l'objet n'est pas sélectionnable via la souris
+  i.name := 'Objet'+mSol.ChildrenCount.ToString;
   I.SetSize(taille.x,taille.y,taille.z); // On taille l'objet aux dimensions passées en paramètre
   I.Position.Point:=Position;            // De même pour la position
   i.RotationAngle.X := 90;
@@ -361,16 +455,6 @@ begin
   posDepartCurseur := Value;   // la position du curseur lorsque l'utilisateur a cliqué (l'origine de la direction), est mis à jour avec la nouvelle position du curseur : au prochain appel de OnMouseMove, la position de départ doit être la position d'arrivée du coup précédent
 end;
 
-procedure TfPrincipale.tbAltitudeChange(Sender: TObject);
-begin
-  dmyJoueurOrientation.position.Y := tbAltitude.Value;
-end;
-
-procedure TfPrincipale.tbVitesseTracking(Sender: TObject);
-begin
-  interactionIHM;
-end;
-
 procedure TfPrincipale.tbZoomCarteTracking(Sender: TObject);
 begin
   Camera2.Position.Y := - tbZoomCarte.Value;
@@ -394,8 +478,7 @@ end;
 procedure TfPrincipale.viewportMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; var Handled: Boolean);
 begin
-  if ssCtrl in shift then tbAltitude.Value := tbAltitude.Value - (WheelDelta/100)
-  else tbVitesse.Value := tbVitesse.Value - (WheelDelta/400);
+  tbVitesse.Value := tbVitesse.Value - (WheelDelta/400);
 end;
 
 function TfPrincipale.GetDirection: TPoint3D;
@@ -436,6 +519,7 @@ begin
   faniPrincipale.ProcessTick(0,0);      // Permet de ne pas bloquer les animations pendant que l'utilisateur interagit avec l'interface graphique
   faniVagues.ProcessTick(0,0);
   faniJourNuit.ProcessTick(0,0);
+  faniCiel.ProcessTick(0,0);
 end;
 
 procedure TfPrincipale.modelBateauRender(Sender: TObject; Context: TContext3D);
@@ -621,6 +705,44 @@ begin
       s.position.x := s.position.x + 50 / ( -s.Position.Y); // On le décalle sur l'axe X (d'ouest en est) en fonction de son altitude (les nuages les plus bas se déplaceront plus rapidement que ceux d'altitute)
       if s.position.x > 1000  then      // Si la position en X du nuage > 1000, alors on repositionne le nuage à la position x = -1000 et Y et Z valeurs aléatoires
         s.Position.point := Point3D(-1000,-100*random-50,random*1000-500);
+    end;
+  end;
+end;
+
+// Renvoi les dimensions de l'objet 3D
+function TfPrincipale.SizeOf3D(const unObjet3D: TControl3D): TPoint3D;
+begin
+  Result :=NullPoint3D;
+  if unObjet3D <> nil then
+    result := Point3D(unObjet3D.Width, unObjet3D.Height, unObjet3D.Depth);
+end;
+
+function TfPrincipale.DetectionCollisionObstacle:boolean;
+var
+  unObjet3D:TControl3D; // l'objet en cours de rendu
+  DistanceEntreObjets, distanceMinimum: TPoint3D;
+  i : integer;
+begin
+  result := false;
+  lblCollision.Text := '';
+  for I := 0 to mSol.ChildrenCount-1 do
+  begin
+    if (mSol.Children[i] is TRectangle3D) or ((mSol.Children[i] is TModel3D) or
+        (mSol.Children[i] is TCylinder) or (mSol.Children[i] is TProxyObject)) then
+    begin
+      // On travail sur l'objet qui est en train d'être calculé
+      unObjet3D := TControl3D(mSol.Children[i]);
+      DistanceEntreObjets := unObjet3D.AbsoluteToLocal3D(TPoint3D(dmyProchainePosition.AbsolutePosition)); // Distance entre l'objet 3d et la balle
+      distanceMinimum := (SizeOf3D(unObjet3D) + SizeOf3D(dmyProchainePosition)) / 2; // distanceMinimum : on divise par 2 car le centre de l'objet est la moitié de la taille de l'élément sur les 3 composantes X, Y, Z
+
+      // Test si la valeur absolue de position est inférieure à la distanceMinimum calculée sur chacune des composantes
+      if ((Abs(DistanceEntreObjets.X) < distanceMinimum.X) and (Abs(DistanceEntreObjets.Y) < distanceMinimum.Y) and
+          (Abs(DistanceEntreObjets.Z) < distanceMinimum.Z)) then
+      begin
+        result := true;
+        lblCollision.Text := 'Collision avec '+unObjet3D.Name;
+        break;
+      end;
     end;
   end;
 end;
