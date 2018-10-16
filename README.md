@@ -16,7 +16,7 @@ This project show :
  - follow the asperities of the ground;
  - use Firemonkey animations.
 
-See my other games with Delphi and Firmaonkey :<br>
+See my other games with Delphi and Firmonkey :<br>
 https://github.com/gbegreg/FMXPong<br>
 https://github.com/gbegreg/demoParis
 https://github.com/gbegreg/FMXCorridor
