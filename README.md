@@ -26,7 +26,7 @@ Video on Youtube :
 <a href="https://youtu.be/UijFnnkVljQ">See the video on Youtube</a>
 
 FMX Island screen captures :
-<img src="https://github.com/gbegreg/FMXISland/blob/master/capture.png">
+<img src="https://github.com/gbegreg/FMXISland/blob/master/capture1.png">
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture2.png">
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture3.png">
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture4.png">
