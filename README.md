@@ -11,11 +11,12 @@ This project show :
  - cloud simulation;
  - take screen capture from TViewport3D;
  - use a map;
+ - cities lit up at night;
+ - collisions detection with obstacles;
+ - follow the asperities of the ground;
  - use Firemonkey animations.
 
-Next evloution will be collisions detections with the TMesh but I can not do it for the moment ...
-
-See my other games with Delphi and Firmaonkey :<br>
+See my other games with Delphi and Firemonkey :<br>
 https://github.com/gbegreg/FMXPong<br>
 https://github.com/gbegreg/demoParis
 https://github.com/gbegreg/FMXCorridor
