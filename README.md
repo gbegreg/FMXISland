@@ -21,7 +21,7 @@ https://github.com/gbegreg/FMXPong<br>
 https://github.com/gbegreg/demoParis
 https://github.com/gbegreg/FMXCorridor
 
-Grégory Bersegeay : http://www.gbesoft.fr
+Grégory Bersegeay : http://www.gbesoft.fr<br>
 Video on Youtube :
 <a href="https://youtu.be/UijFnnkVljQ">See the video on Youtube</a>
 
