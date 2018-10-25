@@ -16,9 +16,7 @@ type
   type TWaveRec = record
     P, W : TPoint3D;
     S: TSphere;
-    show : boolean;
     function Wave(aSum, aX, aY, aT : single):Single;
-    procedure ZMove(aSum: single);
   end;
 
   TfPrincipale = class(TForm)
@@ -772,6 +770,7 @@ begin
   end;
 end;
 
+// Exemple trouvé : http://edn.embarcadero.com/article/42012
 procedure TfPrincipale.CalcMesh;
 var
   M:TMeshData;
@@ -817,14 +816,8 @@ function TWaveRec.Wave(aSum, aX, aY, aT: single): Single;
 var l : single;
 begin
   l := P.Distance(Point3d(aX,aY,0));
-  show := l<3;
   Result:=aSum;
   if w.Y > 0  then Result:=Result +w.x * sin (1/w.y*l-w.z*at);
-end;
-
-procedure TWaveRec.ZMove(aSum: single);
-begin
-
 end;
 
 end.
