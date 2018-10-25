@@ -14,7 +14,8 @@ This project show :
  - cities lit up at night;
  - collisions detection with obstacles;
  - follow the asperities of the ground;
- - use Firemonkey animations.
+ - use Firemonkey animations;
+ - waves on the sea.
 
 See my other games with Delphi and Firemonkey :<br>
 https://github.com/gbegreg/FMXPong<br>
@@ -30,3 +31,4 @@ FMX Island screen captures :
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture2.png">
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture3.png">
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture4.png">
+<img src="https://github.com/gbegreg/FMXISland/blob/master/capture5.png">
