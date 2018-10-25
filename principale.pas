@@ -13,6 +13,14 @@ uses
 type
   TTypeObjet = (batiment, arbre);
 
+  type TWaveRec = record
+    P, W : TPoint3D;
+    S: TSphere;
+    show : boolean;
+    function Wave(aSum, aX, aY, aT : single):Single;
+    procedure ZMove(aSum: single);
+  end;
+
   TfPrincipale = class(TForm)
     viewport: TViewport3D;
     dmyMonde: TDummy;
@@ -38,7 +46,6 @@ type
     faniPrincipale: TFloatAnimation;
     dmyJoueurOrientation: TDummy;
     modeleBatiment: TRectangle3D;
-    fAniVagues: TFloatAnimation;
     modeleArbre: TModel3D;
     mModelArbeMat11: TLightMaterialSource;
     mModelArbeMat01: TLightMaterialSource;
@@ -110,6 +117,9 @@ type
     textureCoteBatiment: TLightMaterialSource;
     lblCollision: TLabel;
     dmyProchainePosition: TDummy;
+    sOrigineVague: TSphere;
+    pMerFond: TPlane;
+    textureFondMer: TLightMaterialSource;
     procedure FormCreate(Sender: TObject);
     procedure viewportMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure viewportMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
@@ -126,6 +136,7 @@ type
     procedure modelBateauRender(Sender: TObject; Context: TContext3D);
     procedure Cone2Render(Sender: TObject; Context: TContext3D);
     procedure CameraBateauClick(Sender: TObject);
+    procedure pMerRender(Sender: TObject; Context: TContext3D);
   private
     { Déclarations privées }
     FPosDepartCurseur: TPointF;    // Position du pointeur de souris au début du mouvement de la souris
@@ -141,6 +152,7 @@ type
     function Barycentre(p1, p2, p3: TPoint3D; p4: TPointF): single;
     function DetectionCollisionObstacle: boolean;
     function SizeOf3D(const unObjet3D: TControl3D): TPoint3D;
+    procedure CalcMesh;
     property posDepartCurseur: TPointF read FPosDepartCurseur write FPosDepartCurseur; // Propriété de la position du pointeur de souris au début du mouvement de la souris
     property angleDeVue : TPointF write SetAngleDeVue; // Propriété de l'angle de vue
     property direction : TPoint3D read GetDirection; // Propriété de la direction
@@ -151,8 +163,9 @@ type
     indicePhoto : integer;   // Indice pour la sauvegarde des photos prises
     hauteurs : array of array of single; // Tableau à deux dimensions pour stocker les hauteur des sommets du TMesh
     entreEnCollisionObstacle : boolean; // Permet de savoir si le joueur est entré en collision avec un obstacle (batiment ou arbre)
-    hauteurMin, demiHauteurJoueur, miseAEchelle, demiHauteurSol : single;
+    hauteurMin, demiHauteurJoueur, miseAEchelle, demiHauteurSol, temps : single;
     moitieCarte : integer;
+    Center : TPoint3D;
     procedure CreerIle(const nbSubdivisions: integer); // Procédure qui crée le niveau
   end;
 
@@ -160,6 +173,7 @@ type
 
 const
   MaxSolMesh = 500;  /// Nombre de maille sur un côté du TMesh
+  MaxMerMesh = 50;   // Nombre de maille sur un coté de pMer
   SizeMap = 500;     // Taille du côté du TMesh
   sizeHauteur = 50;  // Taille hauteur du TMesh
   TailleJoueur = 0.6;// Taille du joueur
@@ -246,6 +260,10 @@ procedure TfPrincipale.FormCreate(Sender: TObject);
 begin
   debut := true;
   randomize;
+  temps := 0;
+  Center := Point3D(MaxMerMesh / pMer.Width, MaxMerMesh / pMer.Height, 0);
+  pMer.SubdivisionsHeight := MaxMerMesh;
+  pMer.SubdivisionsWidth := MaxMerMesh;
   indicePhoto := 1;
   sCiel.visible := false;
   ChargerTextures; // Charge les différentes textures
@@ -339,6 +357,7 @@ begin
     FreeAndNil(M);
     FreeAndNil(Basic);
   end;
+
 end;
 
 function TfPrincipale.CalculerHauteur(P: TPoint3D) : single;
@@ -517,7 +536,6 @@ end;
 procedure TfPrincipale.interactionIHM;
 begin
   faniPrincipale.ProcessTick(0,0);      // Permet de ne pas bloquer les animations pendant que l'utilisateur interagit avec l'interface graphique
-  faniVagues.ProcessTick(0,0);
   faniJourNuit.ProcessTick(0,0);
   faniCiel.ProcessTick(0,0);
 end;
@@ -531,6 +549,12 @@ procedure TfPrincipale.mSolRender(Sender: TObject; Context: TContext3D);
 begin
   // Permet d'afficher le maillage du TMesh si la case est cochée (utilisation de la couleur du toit du phare (bleu))
   if cbGrille.IsChecked then Context.DrawLines(mSol.Data.VertexBuffer, mSol.Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
+end;
+
+procedure TfPrincipale.pMerRender(Sender: TObject; Context: TContext3D);
+begin
+  CalcMesh;
+  if cbGrille.IsChecked then Context.DrawLines(TMeshHelper(pMer).Data.VertexBuffer, TMeshHelper(pMer).Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
 end;
 
 procedure TfPrincipale.CreerPlan; // Permet de créer le plan (la carte)
@@ -567,6 +591,7 @@ procedure TfPrincipale.ChargerTextures; // Chargement des textures
 begin
   textureSol.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'plan.png');
   textureMer.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'mer.jpg');
+  textureFondMer.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'oceans.jpg');
   TextureCielNuit.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'cielnuit.png');
   textureBatiment.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'batiment.jpg');
   textureCoteBatiment.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'coteBatiment.png');
@@ -745,6 +770,61 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TfPrincipale.CalcMesh;
+var
+  M:TMeshData;
+  a,x,y : integer;
+  sum: single;
+  front, back : PPoint3D;
+  F : array of TWaveRec;
+begin
+  M:=TMeshHelper(pMer).Data;
+  System.setLength(F,0);
+
+  for a := 0 to pMer.ChildrenCount-1 do
+    if pMer.Children[A] is TSphere then
+    begin
+      system.SetLength(f, system.Length(F)+1);
+      with F[System.Length(F)-1] do
+      begin
+        s:=TSphere(pMer.children[a]);
+        s.Position.DefaultValue:=Point3D(0.007, 0.1, 5);  // Amplitude, longueur, vitesse
+        p:=Point3d(MaxMerMesh, MaxMerMesh, 0) * 0.5 +s.Position.point * center;
+        w:=s.Position.DefaultValue;
+      end;
+    end;
+
+
+  for y := 0 to MaxMerMesh do
+     for x := 0 to MaxMerMesh do
+       begin
+         front:=M.VertexBuffer.VerticesPtr[X + (Y * (MaxMerMesh + 1))];
+         back:=M.VertexBuffer.VerticesPtr[(MaxMerMesh + 1) * (MaxMerMesh + 1) + X + (Y * (MaxMerMesh + 1))];
+         sum:=0;
+         for a := 0 to system.Length(F)-1 do sum:=F[a].Wave(sum, x, y,temps);
+
+         sum:=sum*100;
+         Front^.Z:=Sum;
+         Back^.z:=sum;
+       end;
+
+  temps := temps + 0.01;
+end;
+
+function TWaveRec.Wave(aSum, aX, aY, aT: single): Single;
+var l : single;
+begin
+  l := P.Distance(Point3d(aX,aY,0));
+  show := l<3;
+  Result:=aSum;
+  if w.Y > 0  then Result:=Result +w.x * sin (1/w.y*l-w.z*at);
+end;
+
+procedure TWaveRec.ZMove(aSum: single);
+begin
+
 end;
 
 end.
