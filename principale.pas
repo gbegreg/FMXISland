@@ -14,8 +14,7 @@ type
   TTypeObjet = (batiment, arbre);
 
   type TWaveRec = record
-    P, W : TPoint3D;
-    S: TSphere;
+    P, W, origine : TPoint3D;
     function Wave(aSum, aX, aY, aT : single):Single;
   end;
 
@@ -118,6 +117,9 @@ type
     sOrigineVague: TSphere;
     pMerFond: TPlane;
     textureFondMer: TLightMaterialSource;
+    cDrapeau: TCylinder;
+    pDrapeau: TPlane;
+    textureDrapeau: TTextureMaterialSource;
     procedure FormCreate(Sender: TObject);
     procedure viewportMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure viewportMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
@@ -135,6 +137,7 @@ type
     procedure Cone2Render(Sender: TObject; Context: TContext3D);
     procedure CameraBateauClick(Sender: TObject);
     procedure pMerRender(Sender: TObject; Context: TContext3D);
+    procedure pDrapeauRender(Sender: TObject; Context: TContext3D);
   private
     { Déclarations privées }
     FPosDepartCurseur: TPointF;    // Position du pointeur de souris au début du mouvement de la souris
@@ -150,7 +153,7 @@ type
     function Barycentre(p1, p2, p3: TPoint3D; p4: TPointF): single;
     function DetectionCollisionObstacle: boolean;
     function SizeOf3D(const unObjet3D: TControl3D): TPoint3D;
-    procedure CalcMesh;
+    procedure CalcMesh(aPlane : TPlane; origine, P, W : TPoint3D; maxMesh : integer);
     property posDepartCurseur: TPointF read FPosDepartCurseur write FPosDepartCurseur; // Propriété de la position du pointeur de souris au début du mouvement de la souris
     property angleDeVue : TPointF write SetAngleDeVue; // Propriété de l'angle de vue
     property direction : TPoint3D read GetDirection; // Propriété de la direction
@@ -549,9 +552,14 @@ begin
   if cbGrille.IsChecked then Context.DrawLines(mSol.Data.VertexBuffer, mSol.Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
 end;
 
+procedure TfPrincipale.pDrapeauRender(Sender: TObject; Context: TContext3D);
+begin
+  CalcMesh(pDrapeau, Point3D(0,0,0), Point3D(pDrapeau.SubdivisionsWidth, pDrapeau.SubdivisionsHeight, 0) * 0.5 + Point3D(0,0,0) * center, Point3D(0.001, 0.9, 20), pDrapeau.SubdivisionsHeight);
+end;
+
 procedure TfPrincipale.pMerRender(Sender: TObject; Context: TContext3D);
 begin
-  CalcMesh;
+  CalcMesh(pMer, Point3D(0,0,pMer.Position.z), Point3D(MaxMerMesh, MaxMerMesh, 0) * 0.5 + Point3D(0,0,pMer.Position.z) * center, Point3D(0.007, 0.1, 5), MaxMerMesh);
   if cbGrille.IsChecked then Context.DrawLines(TMeshHelper(pMer).Data.VertexBuffer, TMeshHelper(pMer).Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
 end;
 
@@ -598,6 +606,7 @@ begin
   textureNuage2.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'cloud2.png');
   textureNuage3.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'cloud3.png');
   textureRemou.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'remou2.png');
+  textureDrapeau.Texture.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'delphi.png');
   maHeightMap:=TBitmap.Create;
   maHeightMap.LoadFromFile('.'+PathDelim+'textures'+PathDelim+'heightmap.jpg');
 end;
@@ -771,45 +780,34 @@ begin
 end;
 
 // Exemple trouvé : http://edn.embarcadero.com/article/42012
-procedure TfPrincipale.CalcMesh;
+procedure TfPrincipale.CalcMesh(aPlane : TPlane; origine, P, W : TPoint3D; maxMesh : integer);
 var
   M:TMeshData;
-  a,x,y : integer;
-  sum: single;
+  i,x,y : integer;
+  somme: single;  // Permet de cumuler les hauteurs calculer en cas de plusieurs ondes
   front, back : PPoint3D;
-  F : array of TWaveRec;
+  F : array of TWaveRec;  // Tableau d'ondes
 begin
-  M:=TMeshHelper(pMer).Data;
-  System.setLength(F,0);
+  M:=TMeshHelper(aPlane).Data; // affectation du aPlane au TMeshData afin de pouvoir travailler avec ses mailles
 
-  for a := 0 to pMer.ChildrenCount-1 do
-    if pMer.Children[A] is TSphere then
-    begin
-      system.SetLength(f, system.Length(F)+1);
-      with F[System.Length(F)-1] do
-      begin
-        s:=TSphere(pMer.children[a]);
-        s.Position.DefaultValue:=Point3D(0.007, 0.1, 5);  // Amplitude, longueur, vitesse
-        p:=Point3d(MaxMerMesh, MaxMerMesh, 0) * 0.5 +s.Position.point * center;
-        w:=s.Position.DefaultValue;
-      end;
-    end;
+  System.setLength(F,1);  // Nous n'utiliserons qu'une seule onde mais le code permet d'en gérer plusieurs...
+  F[System.Length(F)-1].origine := origine;
+  F[System.Length(F)-1].p := P;
+  F[System.Length(F)-1].w := W;
 
-
-  for y := 0 to MaxMerMesh do
-     for x := 0 to MaxMerMesh do
+  for y := 0 to MaxMesh do  // Parcours toutes les "lignes" du maillage
+     for x := 0 to MaxMesh do // Parcours toutes les "colonnes" du maillage
        begin
-         front:=M.VertexBuffer.VerticesPtr[X + (Y * (MaxMerMesh + 1))];
-         back:=M.VertexBuffer.VerticesPtr[(MaxMerMesh + 1) * (MaxMerMesh + 1) + X + (Y * (MaxMerMesh + 1))];
-         sum:=0;
-         for a := 0 to system.Length(F)-1 do sum:=F[a].Wave(sum, x, y,temps);
-
-         sum:=sum*100;
-         Front^.Z:=Sum;
-         Back^.z:=sum;
+         front := M.VertexBuffer.VerticesPtr[X + (Y * (MaxMesh + 1))];
+         back := M.VertexBuffer.VerticesPtr[(MaxMesh + 1) * (MaxMesh + 1) + X + (Y * (MaxMesh + 1))];
+         somme := 0; // initialisation de la somme
+         for i := 0 to system.Length(F)-1 do somme:=F[i].Wave(somme, x, y,temps); // Calcul de la hauteur du sommet de la maille
+         somme := somme * 100;
+         Front^.Z := somme;
+         Back^.z := somme;
        end;
-
-  temps := temps + 0.01;
+  M.CalcTangentBinormals;
+  temps := temps + 0.01; // Incrémentation arbitraire du temps
 end;
 
 function TWaveRec.Wave(aSum, aX, aY, aT: single): Single;
