@@ -19,7 +19,7 @@ This project show :
 
 See my other games with Delphi and Firemonkey :<br>
 https://github.com/gbegreg/FMXPong<br>
-https://github.com/gbegreg/demoParis
+https://github.com/gbegreg/demoParis<br>
 https://github.com/gbegreg/FMXCorridor
 
 Grégory Bersegeay : http://www.gbesoft.fr<br>
