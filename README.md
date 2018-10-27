@@ -23,8 +23,9 @@ https://github.com/gbegreg/demoParis
 https://github.com/gbegreg/FMXCorridor
 
 Grégory Bersegeay : http://www.gbesoft.fr<br>
-Video on Youtube :
-<a href="https://youtu.be/UijFnnkVljQ">See the video on Youtube</a>
+Videos on Youtube : <br>
+<a href="https://youtu.be/UijFnnkVljQ">First video on Youtube</a><br>
+<a href="https://www.youtube.com/watch?v=bD-c8mb-d64&t=6s">Second video on Youtube</a>
 
 FMX Island screen captures :
 <img src="https://github.com/gbegreg/FMXISland/blob/master/capture1.png">
