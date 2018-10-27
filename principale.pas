@@ -8,10 +8,10 @@ uses
   System.Math.Vectors, FMX.Types3D, FMX.Ani, FMX.Objects3D, FMX.Controls3D,
   FMX.Viewport3D, FMX.MaterialSources, FMX.Objects, FMX.Effects,
   FMX.Controls.Presentation, FMX.StdCtrls, FMX.Layouts, FMX.Filter.Effects, system.IOUtils,
-  System.Generics.Collections, FMX.Layers3D, Math;
+  System.Generics.Collections, FMX.Layers3D, Math, FMX.ListBox;
 
 type
-  TTypeObjet = (batiment, arbre);
+  TTypeObjet = (batiment, arbre, rocher1, rocher2);
 
   type TWaveRec = record
     P, W, origine : TPoint3D;
@@ -120,6 +120,13 @@ type
     cDrapeau: TCylinder;
     pDrapeau: TPlane;
     textureDrapeau: TTextureMaterialSource;
+    modeleRocher1: TModel3D;
+    Model3D1Mat01: TLightMaterialSource;
+    modeleRocher2: TModel3D;
+    modeleRocher2Mat01: TLightMaterialSource;
+    fAniFPS: TFloatAnimation;
+    Layout4: TLayout;
+    cbMultiSample: TComboBox;
     procedure FormCreate(Sender: TObject);
     procedure viewportMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure viewportMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
@@ -138,6 +145,8 @@ type
     procedure CameraBateauClick(Sender: TObject);
     procedure pMerRender(Sender: TObject; Context: TContext3D);
     procedure pDrapeauRender(Sender: TObject; Context: TContext3D);
+    procedure fAniFPSFinish(Sender: TObject);
+    procedure cbMultiSampleChange(Sender: TObject);
   private
     { Déclarations privées }
     FPosDepartCurseur: TPointF;    // Position du pointeur de souris au début du mouvement de la souris
@@ -165,7 +174,7 @@ type
     hauteurs : array of array of single; // Tableau à deux dimensions pour stocker les hauteur des sommets du TMesh
     entreEnCollisionObstacle : boolean; // Permet de savoir si le joueur est entré en collision avec un obstacle (batiment ou arbre)
     hauteurMin, demiHauteurJoueur, miseAEchelle, demiHauteurSol, temps : single;
-    moitieCarte : integer;
+    moitieCarte, fps : integer;
     Center : TPoint3D;
     procedure CreerIle(const nbSubdivisions: integer); // Procédure qui crée le niveau
   end;
@@ -257,11 +266,19 @@ begin
   end;
 end;
 
+procedure TfPrincipale.fAniFPSFinish(Sender: TObject);
+begin
+  fPrincipale.Caption := 'FMX Island [FPS : '+fps.ToString+']';
+  fps := 0;
+  fAniFPS.Start;
+end;
+
 procedure TfPrincipale.FormCreate(Sender: TObject);
 begin
   debut := true;
   randomize;
   temps := 0;
+  fps := 0;
   Center := Point3D(MaxMerMesh / pMer.Width, MaxMerMesh / pMer.Height, 0);
   pMer.SubdivisionsHeight := MaxMerMesh;
   pMer.SubdivisionsWidth := MaxMerMesh;
@@ -431,6 +448,8 @@ begin
   case typeObjet of
     batiment: I.SourceObject:=modeleBatiment;  // On indique l'objet qui sert de modèle au TProxyObject;
     arbre: I.SourceObject:=modeleArbre;  // On indique l'objet qui sert de modèle au TProxyObject;
+    rocher1: I.SourceObject:=modeleRocher1;
+    rocher2: I.SourceObject:=modeleRocher2;
   end;
   I.Locked:=true;                  // Pour ne plus modifier l'objet en mode conception
   I.HitTest:=false;                // Ainsi, l'objet n'est pas sélectionnable via la souris
@@ -454,6 +473,15 @@ begin
   b.SaveToFile('.'+PathDelim+'captures'+PathDelim+'capture'+indicePhoto.ToString+'.png');
   inc(indicePhoto);
   b.free;
+end;
+
+procedure TfPrincipale.cbMultiSampleChange(Sender: TObject);
+begin
+  case cbMultiSample.ItemIndex of
+     0: viewport.Multisample := TMultisample.None;
+     1: viewport.Multisample := TMultisample.TwoSamples;
+     2: viewport.Multisample := TMultisample.FourSamples;
+  end;
 end;
 
 procedure TfPrincipale.SetAngleDeVue(const Value: TPointF);  // Evolution de l'angle de vue
@@ -539,6 +567,7 @@ begin
   faniPrincipale.ProcessTick(0,0);      // Permet de ne pas bloquer les animations pendant que l'utilisateur interagit avec l'interface graphique
   faniJourNuit.ProcessTick(0,0);
   faniCiel.ProcessTick(0,0);
+  fAniFPS.ProcessTick(0,0);
 end;
 
 procedure TfPrincipale.modelBateauRender(Sender: TObject; Context: TContext3D);
@@ -561,6 +590,7 @@ procedure TfPrincipale.pMerRender(Sender: TObject; Context: TContext3D);
 begin
   CalcMesh(pMer, Point3D(0,0,pMer.Position.z), Point3D(MaxMerMesh, MaxMerMesh, 0) * 0.5 + Point3D(0,0,pMer.Position.z) * center, Point3D(0.007, 0.1, 5), MaxMerMesh);
   if cbGrille.IsChecked then Context.DrawLines(TMeshHelper(pMer).Data.VertexBuffer, TMeshHelper(pMer).Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
+  inc(fps);
 end;
 
 procedure TfPrincipale.CreerPlan; // Permet de créer le plan (la carte)
