@@ -8,7 +8,7 @@ uses
   System.Math.Vectors, FMX.Types3D, FMX.Ani, FMX.Objects3D, FMX.Controls3D,
   FMX.Viewport3D, FMX.MaterialSources, FMX.Objects, FMX.Effects,
   FMX.Controls.Presentation, FMX.StdCtrls, FMX.Layouts, FMX.Filter.Effects, system.IOUtils,
-  System.Generics.Collections, FMX.Layers3D, Math, FMX.ListBox;
+  System.Generics.Collections, FMX.Layers3D, Math, FMX.ListBox, System.Threading;
 
 type
   TTypeObjet = (batiment, arbre, rocher1, rocher2);
@@ -109,7 +109,6 @@ type
     l1Ville2: TLight;
     l1Ville3: TLight;
     l2Ville1: TLight;
-    faniCiel: TFloatAnimation;
     textureBatiment: TLightMaterialSource;
     textureCoteBatiment: TLightMaterialSource;
     lblCollision: TLabel;
@@ -124,9 +123,9 @@ type
     Model3D1Mat01: TLightMaterialSource;
     modeleRocher2: TModel3D;
     modeleRocher2Mat01: TLightMaterialSource;
-    fAniFPS: TFloatAnimation;
     Layout4: TLayout;
     cbMultiSample: TComboBox;
+    tmFPS: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure viewportMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Single);
     procedure viewportMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Single);
@@ -139,14 +138,11 @@ type
     procedure mSolRender(Sender: TObject; Context: TContext3D);
     procedure imgLumiereClick(Sender: TObject);
     procedure tbZoomCarteTracking(Sender: TObject);
-    procedure dmyNuagesRender(Sender: TObject; Context: TContext3D);
-    procedure modelBateauRender(Sender: TObject; Context: TContext3D);
-    procedure Cone2Render(Sender: TObject; Context: TContext3D);
     procedure CameraBateauClick(Sender: TObject);
     procedure pMerRender(Sender: TObject; Context: TContext3D);
-    procedure pDrapeauRender(Sender: TObject; Context: TContext3D);
-    procedure fAniFPSFinish(Sender: TObject);
     procedure cbMultiSampleChange(Sender: TObject);
+    procedure tmFPSTimer(Sender: TObject);
+    procedure viewportPaint(Sender: TObject; Canvas: TCanvas; const ARect: TRectF);
   private
     { Déclarations privées }
     FPosDepartCurseur: TPointF;    // Position du pointeur de souris au début du mouvement de la souris
@@ -186,7 +182,7 @@ const
   MaxMerMesh = 50;   // Nombre de maille sur un coté de pMer
   SizeMap = 500;     // Taille du côté du TMesh
   sizeHauteur = 50;  // Taille hauteur du TMesh
-  TailleJoueur = 0.6;// Taille du joueur
+  TailleJoueur = 1.4;// Taille du joueur
 
 var
   fPrincipale: TfPrincipale;
@@ -208,10 +204,15 @@ begin
 
   lblHeure.text := Format('%.2d:%.2d', [minute div 60, minute mod 60]); // Affichage de l'heure dans le jeu en fonction de la rotation du Soleil
 
+  sCiel.RotationAngle.Z := -dmySoleil.RotationAngle.Z; // Evite un TFloatAnimation
+  dmyBateau.RotationAngle.Z := dmyBateau.RotationAngle.Z - 0.05;
+  cone2.RotationAngle.Y := cone2.RotationAngle.Y + 1;
+
   // Aube ou crépuscule
   if ((dmySoleil.RotationAngle.Z > 80) and (dmySoleil.RotationAngle.Z < 100)) or
      ((dmySoleil.RotationAngle.Z > 260) and (dmySoleil.RotationAngle.Z < 280)) then
   begin
+    couleurSoleil.Color := $FFFF891A;
     viewport.Color := TAlphaColors.Darkblue;   // Couleur du fond en bleu foncé
     sCiel.MaterialSource := textureCielNuit;
     sCiel.Opacity := 0.5;
@@ -238,8 +239,9 @@ begin
     end
     else
     begin
+      couleurSoleil.Color := $FFFEDC07;
       viewport.Color := TAlphaColors.Cornflowerblue;
-      sCiel.Opacity := 1;
+      sCiel.Opacity := 0.1;
       sCiel.MaterialSource := CouleurCielJour;
     end;
   end;
@@ -264,13 +266,6 @@ begin
     dmyProchainePosition.Position.Y := - 50;  // On place le dummy indiquant la position du joueur sur la carte au desssus
     dmyPositionJoueurCarte.Position.Point := dmyProchainePosition.Position.Point; // Mise à jour du TCone représentant la position du curseur sur la carte
   end;
-end;
-
-procedure TfPrincipale.fAniFPSFinish(Sender: TObject);
-begin
-  fPrincipale.Caption := 'FMX Island [FPS : '+fps.ToString+']';
-  fps := 0;
-  fAniFPS.Start;
 end;
 
 procedure TfPrincipale.FormCreate(Sender: TObject);
@@ -425,18 +420,18 @@ end;
 // https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
 function TfPrincipale.Barycentre(p1, p2, p3 : TPoint3D; p4 : TPointF):single;
 var
-  det, l1, l2, l3 : single;
+  det, l1, l2, l3, d1, d2, d3,  t1,t2 : single;
 begin
-  det := (p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z);
-  l1  := ( (p2.z - p3.z) * (p4.x - p3.x) + (p3.x - p2.x) * (p4.y - p3.z) ) / det;
-  l2  := ( (p3.z - p1.z) * (p4.x - p3.x) + (p1.x - p3.x) * (p4.y - p3.z) ) / det;
+  d1 := (p2.z - p3.z);  // Petites optimisations pour ne faire les calculs intermédiaires qu'une seule fois à chaque itération
+  d2 := (p3.x - p2.x);
+  d3 := (p1.x - p3.x);
+  det := 1 / ((d1 * d3) + (d2 * (p1.z - p3.z))); // Inverse, permet de remplacer les divisions gourmandes par une multiplication (ainsi, on ne fait la division qu'une fois au lieu de deux à chaque itération)
+  t1 := (p4.x - p3.x);
+  t2 := (p4.y - p3.z);
+  l1  := (( d1 * t1) + (d2 * t2 )) * det;
+  l2  := ((p3.z - p1.z) * (t1 + (d3 * t2 ))) * det;
   l3  := 1 - l1 - l2;
   result := l1 * p1.y + l2 * p2.y + l3 * p3.y;
-end;
-
-procedure TfPrincipale.Cone2Render(Sender: TObject; Context: TContext3D);
-begin
-  cone2.RotationAngle.Y := cone2.RotationAngle.Y + 1;
 end;
 
 procedure TfPrincipale.ConstructionObjets(position, taille : TPoint3d; typeObjet : TTypeObjet; orientation : single = 0); // Création d'un batiment
@@ -510,6 +505,12 @@ begin
   interactionIHM;
 end;
 
+procedure TfPrincipale.tmFPSTimer(Sender: TObject);
+begin
+  fPrincipale.Caption := 'FMX Island [FPS : '+fps.ToString+']';
+  fps := 0;
+end;
+
 procedure TfPrincipale.viewportMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Single);
 begin
@@ -527,6 +528,12 @@ procedure TfPrincipale.viewportMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; var Handled: Boolean);
 begin
   tbVitesse.Value := tbVitesse.Value - (WheelDelta/400);
+end;
+
+procedure TfPrincipale.viewportPaint(Sender: TObject; Canvas: TCanvas; const ARect: TRectF);
+begin
+  inherited;
+  inc(fps);
 end;
 
 function TfPrincipale.GetDirection: TPoint3D;
@@ -566,13 +573,6 @@ procedure TfPrincipale.interactionIHM;
 begin
   faniPrincipale.ProcessTick(0,0);      // Permet de ne pas bloquer les animations pendant que l'utilisateur interagit avec l'interface graphique
   faniJourNuit.ProcessTick(0,0);
-  faniCiel.ProcessTick(0,0);
-  fAniFPS.ProcessTick(0,0);
-end;
-
-procedure TfPrincipale.modelBateauRender(Sender: TObject; Context: TContext3D);
-begin
-  dmyBateau.RotationAngle.Z := dmyBateau.RotationAngle.Z - 0.05;
 end;
 
 procedure TfPrincipale.mSolRender(Sender: TObject; Context: TContext3D);
@@ -581,17 +581,23 @@ begin
   if cbGrille.IsChecked then Context.DrawLines(mSol.Data.VertexBuffer, mSol.Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
 end;
 
-procedure TfPrincipale.pDrapeauRender(Sender: TObject; Context: TContext3D);
-begin
-  CalcMesh(pDrapeau, Point3D(0,0,0), Point3D(pDrapeau.SubdivisionsWidth, pDrapeau.SubdivisionsHeight, 0) * 0.5 + Point3D(0,0,0) * center, Point3D(0.001, 0.9, 20), pDrapeau.SubdivisionsHeight);
-end;
-
 procedure TfPrincipale.pMerRender(Sender: TObject; Context: TContext3D);
 begin
-  CalcMesh(pMer, Point3D(0,0,pMer.Position.z), Point3D(MaxMerMesh, MaxMerMesh, 0) * 0.5 + Point3D(0,0,pMer.Position.z) * center, Point3D(0.007, 0.1, 5), MaxMerMesh);
+  TTask.Create( procedure
+                begin
+                  CalcMesh(pMer, Point3D(0,0,pMer.Position.z), Point3D(MaxMerMesh, MaxMerMesh, 0) * 0.5 + Point3D(0,0,pMer.Position.z) * center, Point3D(0.007, 0.1, 5), MaxMerMesh);
+                end).start;
   if cbGrille.IsChecked then Context.DrawLines(TMeshHelper(pMer).Data.VertexBuffer, TMeshHelper(pMer).Data.IndexBuffer, TMaterialSource.ValidMaterial(mCouleurToitPhare),0.25);
-  inc(fps);
+  TTask.Create( procedure
+                begin
+                  CalcMesh(pDrapeau, Point3D(0,0,0), Point3D(pDrapeau.SubdivisionsWidth, pDrapeau.SubdivisionsHeight, 0) * 0.5 + Point3D(0,0,0) * center, Point3D(0.001, 0.9, 20), pDrapeau.SubdivisionsHeight);
+                end).start;
+  TTask.Create( procedure
+                begin
+                  genererNuages;
+                end).start;
 end;
+
 
 procedure TfPrincipale.CreerPlan; // Permet de créer le plan (la carte)
 var
@@ -615,12 +621,6 @@ begin
 
   imgCarte.Bitmap.Assign(b);
   b.Free;
-end;
-
-procedure TfPrincipale.dmyNuagesRender(Sender: TObject;
-  Context: TContext3D);
-begin
-  genererNuages;
 end;
 
 procedure TfPrincipale.ChargerTextures; // Chargement des textures
@@ -733,7 +733,7 @@ begin
   begin
     s:=TPlane.Create(nil);
     s.parent := dmyNuages; // La parent du TPlane sera dmyNuages
-    taille := random(500); // Taille aléatoire de chaque nuage
+    taille := random(1500); // Taille aléatoire de chaque nuage
     case random(3) mod 3 of    // Affectation alétoirement d'une des 3 textures de nuage disponibles
       0 : begin
             s.MaterialSource:=textureNuage2;
@@ -813,25 +813,27 @@ end;
 procedure TfPrincipale.CalcMesh(aPlane : TPlane; origine, P, W : TPoint3D; maxMesh : integer);
 var
   M:TMeshData;
-  i,x,y : integer;
+  i,x,y,MaxMerMeshPlus1, lgMoins1 : integer;
   somme: single;  // Permet de cumuler les hauteurs calculer en cas de plusieurs ondes
   front, back : PPoint3D;
   F : array of TWaveRec;  // Tableau d'ondes
 begin
   M:=TMeshHelper(aPlane).Data; // affectation du aPlane au TMeshData afin de pouvoir travailler avec ses mailles
 
+  MaxMerMeshPlus1 := MaxMesh + 1;
   System.setLength(F,1);  // Nous n'utiliserons qu'une seule onde mais le code permet d'en gérer plusieurs...
   F[System.Length(F)-1].origine := origine;
   F[System.Length(F)-1].p := P;
   F[System.Length(F)-1].w := W;
+  lgMoins1 := system.Length(F)-1;
 
   for y := 0 to MaxMesh do  // Parcours toutes les "lignes" du maillage
      for x := 0 to MaxMesh do // Parcours toutes les "colonnes" du maillage
        begin
-         front := M.VertexBuffer.VerticesPtr[X + (Y * (MaxMesh + 1))];
-         back := M.VertexBuffer.VerticesPtr[(MaxMesh + 1) * (MaxMesh + 1) + X + (Y * (MaxMesh + 1))];
+         front := M.VertexBuffer.VerticesPtr[X + (Y * MaxMerMeshPlus1)];
+         back := M.VertexBuffer.VerticesPtr[MaxMerMeshPlus1 * MaxMerMeshPlus1 + X + (Y * MaxMerMeshPlus1)];
          somme := 0; // initialisation de la somme
-         for i := 0 to system.Length(F)-1 do somme:=F[i].Wave(somme, x, y,temps); // Calcul de la hauteur du sommet de la maille
+         for i := 0 to lgMoins1 do somme:=F[i].Wave(somme, x, y,temps); // Calcul de la hauteur du sommet de la maille
          somme := somme * 100;
          Front^.Z := somme;
          Back^.z := somme;
