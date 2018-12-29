@@ -11,7 +11,7 @@ uses
   System.Generics.Collections, FMX.Layers3D, Math, FMX.ListBox, System.Threading;
 
 type
-  TTypeObjet = (batiment, arbre, rocher1, rocher2);
+  TTypeObjet = (batiment, arbre);
 
   type TWaveRec = record
     P, W, origine : TPoint3D;
@@ -119,10 +119,6 @@ type
     cDrapeau: TCylinder;
     pDrapeau: TPlane;
     textureDrapeau: TTextureMaterialSource;
-    modeleRocher1: TModel3D;
-    Model3D1Mat01: TLightMaterialSource;
-    modeleRocher2: TModel3D;
-    modeleRocher2Mat01: TLightMaterialSource;
     Layout4: TLayout;
     cbMultiSample: TComboBox;
     tmFPS: TTimer;
@@ -443,8 +439,6 @@ begin
   case typeObjet of
     batiment: I.SourceObject:=modeleBatiment;  // On indique l'objet qui sert de modèle au TProxyObject;
     arbre: I.SourceObject:=modeleArbre;  // On indique l'objet qui sert de modèle au TProxyObject;
-    rocher1: I.SourceObject:=modeleRocher1;
-    rocher2: I.SourceObject:=modeleRocher2;
   end;
   I.Locked:=true;                  // Pour ne plus modifier l'objet en mode conception
   I.HitTest:=false;                // Ainsi, l'objet n'est pas sélectionnable via la souris
@@ -675,52 +669,47 @@ begin
   ConstructionObjets(TPoint3D.Create(-145,-50,-15),TPoint3D.Create(4,20,2), batiment);
 
   // Chargement de quelques arbres un peu partout sur le plateau
-  ConstructionObjets(TPoint3D.Create(-19,18,15.2),TPoint3D.Create(10,10,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-19,22,15.1),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-18,25,14.3),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-16,23,14.2),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-20,28,14.6),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-24,29,15.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-26,27,15.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-25,24.5,16.2),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-26,20,16.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-10,0,14.7),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-12,7,17.9),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-13,-5,13.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-17,4,17.4),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(-17,9,18.3),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(0,-50,13),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(1,-48,13),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(3,-51,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(5,-46,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(20,-50,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(21,-48,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(23,-51,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(25,-46,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(26,-51,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(15,-50,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(16,-48,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(18,-51,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(20,-46,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(21,-51,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(30,-70,12.8),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(31,-80,11.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(35,-85,11.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(22,-80,11.6),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(24,-78,11.6),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(19,-82,11.6),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(20,-83,11.6),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(17,-81,11.6),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(14,-70,12),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(18,-68,12),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(15,-72,12),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(13,-73,12),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(14,-71,12),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(14,-60,12.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(18,-62,12.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(16,-58,12.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(12,-58,12.5),TPoint3D.Create(10,12,10), arbre);
-  ConstructionObjets(TPoint3D.Create(13,-50,12.5),TPoint3D.Create(10,12,10), arbre);
+  ConstructionObjets(TPoint3D.Create(-19,18,19.7),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-19,22,19.7),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-18,25,19.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-16,23,19.2),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-20,28,19.7),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-24,29,19.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-26,27,19.8),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-25,24.5,20.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-26,20,20.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-10,0,17.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-12,7,20),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-13,-5,16.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-17,4,18.4),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(-17,9,21.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(0,-50,16),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(1,-48,16.4),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(3,-51,16),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(5,-46,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(20,-50,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(21,-48,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(23,-51,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(25,-46,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(26,-51,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(15,-50,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(16,-48,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(18,-51,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(20,-46,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(21,-51,16.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(30,-70,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(31,-80,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(35,-85,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(22,-80,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(24,-78,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(19,-82,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(20,-83,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(17,-81,15),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(14,-70,15.3),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(18,-68,15.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(15,-72,15.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(13,-73,15.5),TPoint3D.Create(1,1,1), arbre);
+  ConstructionObjets(TPoint3D.Create(14,-71,15.7),TPoint3D.Create(1,1,1), arbre);
 end;
 
 procedure TfPrincipale.genererNuages;
