@@ -163,7 +163,6 @@ type
     debut : boolean;
     maHeightMap: TBitmap;    // Texture qui servira à générer le sol (le Mesh)
     indicePhoto : integer;   // Indice pour la sauvegarde des photos prises
-    hauteurs : array of array of single; // Tableau à deux dimensions pour stocker les hauteur des sommets du TMesh
     entreEnCollisionObstacle : boolean; // Permet de savoir si le joueur est entré en collision avec un obstacle (batiment ou arbre)
     hauteurMin, demiHauteurJoueur, miseAEchelle, demiHauteurSol, temps : single;
     moitieCarte, fps : integer;
@@ -179,6 +178,7 @@ const
   SizeMap = 500;     // Taille du côté du TMesh
   sizeHauteur = 50;  // Taille hauteur du TMesh
   TailleJoueur = 1.4;// Taille du joueur
+  MaxMeshPlus1 = MaxSolMesh+1;
 
 var
   fPrincipale: TfPrincipale;
@@ -253,7 +253,7 @@ begin
   else
   begin
     dmyProchainePosition.Position.Point := dmyJoueurOrientation.Position.Point + direction * tbVitesse.value;
-    if length(hauteurs) > 0 then
+    if mSol.Data.VertexBuffer.Length > 0 then
     begin
       dmyProchainePosition.Position.Y := CalculerHauteur(dmyProchainePosition.Position.Point) - demiHauteurJoueur - TailleJoueur; // La hauteur de la position du joueur est lue dans le tableau des hauteurs en fonction des coorodonées X et Z
       if not(DetectionCollisionObstacle) then dmyJoueurOrientation.Position.Point := dmyProchainePosition.Position.Point;
@@ -315,7 +315,6 @@ begin
 
   G:=nbSubdivisions + 1;
   S:= G * G;  // Nombre total de maille
-  setlength(hauteurs, G, G);
   hauteurMin := 0;
 
   try
@@ -344,7 +343,6 @@ begin
           C:=TAlphaColorRec(CorrectColor(bitmapData.GetPixel(x,y))); // On récupère la couleur du pixel correspondant dans la heightmap
           zMap := (C.R  + C.G  + C.B ) / $FF * sizemap / 25; // détermination de la hauteur du sommet en fonction de la couleur
 
-          hauteurs[X,Y] := -zMap; // On stocke la hauteur calculée
           if -zMap < hauteurMin then hauteurMin := -zmap;
 
           Front^.Z := zMap; // on affecte la hauteur calculée à la face avant
@@ -391,19 +389,17 @@ begin
     // On détermine dans quel triangle on est
     if xCoord <= (1 - zCoord) then
     begin
-      // On calcule la hauteur en fonction des 3 sommets du triangle dans lequel se trouve le joueur
-      hauteurCalculee := Barycentre(TPoint3D.Create(0,hauteurs[grilleX,grilleZ],0),
-                                    TPoint3D.Create(1,hauteurs[grilleX+1,grilleZ],0),
-                                    TPoint3D.Create(0,hauteurs[grilleX,grilleZ+1],1),
-                                    TPointF.Create(xCoord, zCoord));
+      hauteurCalculee := Barycentre(TPoint3D.Create(0,-mSol.data.VertexBuffer.Vertices[grilleX + (grilleZ * MaxMeshPlus1)].Z,0),
+                                  TPoint3D.Create(1,-mSol.data.VertexBuffer.Vertices[grilleX +1+ (grilleZ * MaxMeshPlus1)].Z,0),
+                                  TPoint3D.Create(0,-mSol.data.VertexBuffer.Vertices[grilleX + ((grilleZ +1)* MaxMeshPlus1)].Z,1),
+                                  TPointF.Create(xCoord, zCoord));
     end
     else
     begin
-      // On calcule la hauteur en fonction des 3 sommets du triangle dans lequel se trouve le joueur
-      hauteurCalculee := Barycentre(TPoint3D.Create(1,hauteurs[grilleX+1,grilleZ],0),
-                                    TPoint3D.Create(1,hauteurs[grilleX+1,grilleZ+1],1),
-                                    TPoint3D.Create(0,hauteurs[grilleX,grilleZ+1],1),
-                                    TPointF.Create(xCoord, zCoord));
+      hauteurCalculee := Barycentre(TPoint3D.Create(1,-mSol.data.VertexBuffer.Vertices[grilleX +1+ (grilleZ * MaxMeshPlus1)].Z,0),
+                                  TPoint3D.Create(1,-mSol.data.VertexBuffer.Vertices[grilleX +1+ ((grilleZ +1) * MaxMeshPlus1)].Z,1),
+                                  TPoint3D.Create(0,-mSol.data.VertexBuffer.Vertices[grilleX + ((grilleZ +1)* MaxMeshPlus1)].Z,1),
+                                  TPointF.Create(xCoord, zCoord));
     end;
 
     hauteurCalculee := hauteurCalculee * miseAEchelle + demiHauteurSol - demiHauteurJoueur;  // Hauteur calculée et mise à l'échelle (size 50 dans CreerIle et prise en compte des demis hauteurs)
