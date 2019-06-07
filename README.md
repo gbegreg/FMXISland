@@ -17,6 +17,9 @@ This project show :
  - use Firemonkey animations;
  - waves on the sea.
 
+See other demos presented at the Delphi Tour 2019 in France :<br>
+https://github.com/gbegreg/Ile3D<br><br>
+
 See my other games with Delphi and Firemonkey :<br>
 https://github.com/gbegreg/FMXPong<br>
 https://github.com/gbegreg/demoParis<br>
